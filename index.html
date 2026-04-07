@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vahukommide Mäng</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial', sans-serif;
+        }
+
+        .container {
+            width: 100%;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+        }
+
+        .game-area {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            cursor: crosshair;
+        }
+
+        .marshmallow {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle at 30% 30%, #fff9e6, #ffe6f0);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.1s;
+            padding: 0;
+            border: 2px solid #ffb3d9;
+        }
+
+        .marshmallow:hover {
+            transform: scale(1.1);
+        }
+
+        .marshmallow::before,
+        .marshmallow::after {
+            content: '';
+            position: absolute;
+            background: #ffb3d9;
+            border-radius: 50%;
+        }
+
+        .marshmallow::before {
+            width: 8px;
+            height: 8px;
+            top: 8px;
+            left: 8px;
+        }
+
+        .marshmallow::after {
+            width: 8px;
+            height: 8px;
+            top: 8px;
+            right: 8px;
+        }
+
+        .ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .ui h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .score {
+            font-size: 18px;
+            color: #667eea;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .level {
+            font-size: 16px;
+            color: #764ba2;
+            margin-bottom: 5px;
+        }
+
+        .time {
+            font-size: 16px;
+            color: #333;
+        }
+
+        .button-container {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            z-index: 100;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            display: none;
+        }
+
+        .popup.show {
+            display: block;
+            animation: popIn 0.3s ease-out;
+        }
+
+        @keyframes popIn {
+            from {
+                transform: translate(-50%, -50%) scale(0.8);
+                opacity: 0;
+            }
+            to {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .popup h2 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .popup p {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .popup button {
+            margin-top: 20px;
+            padding: 12px 30px;
+            font-size: 16px;
+        }
+
+        .blast {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            animation: blast 0.6s ease-out forwards;
+            pointer-events: none;
+        }
+
+        @keyframes blast {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        .particle {
+            position: absolute;
+            pointer-events: none;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--tx), var(--ty)) scale(0);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="game-area" id="gameArea">
+            <div class="ui">
+                <h1>🎯 Vahukommide Mäng</h1>
+                <div class="score">Skoor: <span id="score">0</span></div>
+                <div class="level">Tase: <span id="level">1</span></div>
+                <div class="time">Aeg: <span id="time">60</span>s</div>
+            </div>
+            <div class="button-container">
+                <button id="restartBtn">Uuesti Alusta</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="popup" id="gameOverPopup">
+        <h2>Mäng Läbi!</h2>
+        <p>Lõplik Skoor: <strong id="finalScore">0</strong></p>
+        <p>Tase: <strong id="finalLevel">1</strong></p>
+        <button onclick="location.reload()">Uuesti Mängida</button>
+    </div>
+
+    <script>
+        const gameArea = document.getElementById('gameArea');
+        const scoreDisplay = document.getElementById('score');
+        const levelDisplay = document.getElementById('level');
+        const timeDisplay = document.getElementById('time');
+        const gameOverPopup = document.getElementById('gameOverPopup');
+        const restartBtn = document.getElementById('restartBtn');
+
+        let score = 0;
+        let level = 1;
+        let timeLeft = 60;
+        let gameActive = true;
+        let marshmallowCount = 0;
+
+        // Käivita aega
+        const timeInterval = setInterval(() => {
+            if (gameActive) {
+                timeLeft--;
+                timeDisplay.textContent = timeLeft;
+
+                if (timeLeft === 0) {
+                    endGame();
+                }
+            }
+        }, 1000);
+
+        // Loo vahukommi
+        function createMarshmallow() {
+            if (!gameActive) return;
+
+            const marshmallow = document.createElement('div');
+            marshmallow.className = 'marshmallow';
+            marshmallow.id = 'marshmallow-' + marshmallowCount++;
+
+            // Juhuslik positsioon
+            const x = Math.random() * (window.innerWidth - 60);
+            const y = Math.random() * (window.innerHeight - 60);
+
+            marshmallow.style.left = x + 'px';
+            marshmallow.style.top = y + 'px';
+
+            marshmallow.onclick = (e) => {
+                e.stopPropagation();
+                hitMarshmallow(marshmallow, x, y);
+            };
+
+            gameArea.appendChild(marshmallow);
+
+            // Eemaldamine aja möödudes
+            setTimeout(() => {
+                if (marshmallow.parentElement) {
+                    marshmallow.remove();
+                }
+            }, 4000);
+        }
+
+        // Pihtas!
+        function hitMarshmallow(marshmallow, x, y) {
+            score += level * 10;
+            scoreDisplay.textContent = score;
+
+            // Blasti efekt
+            createBlast(x + 20, y + 20);
+
+            // Osakesed
+            createParticles(x + 20, y + 20);
+
+            marshmallow.remove();
+
+            // Taseme tõstmine
+            if (score > 0 && score % 500 === 0) {
+                level++;
+                levelDisplay.textContent = level;
+            }
+        }
+
+        // Plahvatuse efekt
+        function createBlast(x, y) {
+            const blast = document.createElement('div');
+            blast.className = 'blast';
+            blast.style.left = x + 'px';
+            blast.style.top = y + 'px';
+            blast.textContent = '💥';
+            blast.style.fontSize = '30px';
+
+            gameArea.appendChild(blast);
+
+            setTimeout(() => blast.remove(), 600);
+        }
+
+        // Osakesed
+        function createParticles(x, y) {
+            const particles = ['💧', '✨', '🍧'];
+
+            for (let i = 0; i < 8; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.textContent = particles[Math.floor(Math.random() * particles.length)];
+                particle.style.left = x + 'px';
+                particle.style.top = y + 'px';
+                particle.style.fontSize = '20px';
+
+                const angle = (Math.PI * 2 * i) / 8;
+                const distance = 80;
+                const tx = Math.cos(angle) * distance;
+                const ty = Math.sin(angle) * distance;
+
+                particle.style.setProperty('--tx', tx + 'px');
+                particle.style.setProperty('--ty', ty + 'px');
+                particle.style.animation = 'float 0.8s ease-out forwards';
+
+                gameArea.appendChild(particle);
+
+                setTimeout(() => particle.remove(), 800);
+            }
+        }
+
+        // Mängu lõpp
+        function endGame() {
+            gameActive = false;
+            clearInterval(timeInterval);
+
+            // Eemalda kõik vahukommid
+            document.querySelectorAll('.marshmallow').forEach(m => m.remove());
+
+            // Näita popup
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalLevel').textContent = level;
+            gameOverPopup.classList.add('show');
+        }
+
+        // Alusta uuesti
+        restartBtn.onclick = () => {
+            location.reload();
+        };
+
+        // Alusta mängu
+        setInterval(() => {
+            if (gameActive) {
+                createMarshmallow();
+            }
+        }, 800 - (level * 50));
+    </script>
+</body>
+</html>
