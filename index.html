@@ -37,41 +37,13 @@
 
         .marshmallow {
             position: absolute;
-            width: 40px;
-            height: 40px;
             background: radial-gradient(circle at 30% 30%, #fff9e6, #ffe6f0);
-            border-radius: 50%;
+            border-radius: 0;
             cursor: pointer;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
             transition: transform 0.1s;
             padding: 0;
             border: 2px solid #ffb3d9;
-        }
-
-        .marshmallow:hover {
-            transform: scale(1.1);
-        }
-
-        .marshmallow::before,
-        .marshmallow::after {
-            content: '';
-            position: absolute;
-            background: #ffb3d9;
-            border-radius: 50%;
-        }
-
-        .marshmallow::before {
-            width: 8px;
-            height: 8px;
-            top: 8px;
-            left: 8px;
-        }
-
-        .marshmallow::after {
-            width: 8px;
-            height: 8px;
-            top: 8px;
-            right: 8px;
         }
 
         .ui {
@@ -204,9 +176,18 @@
             }
         }
 
-        .particle {
+        .hate-text {
             position: absolute;
+            font-size: 24px;
+            font-weight: bold;
+            color: red;
             pointer-events: none;
+            animation: rotate 1s linear;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         @keyframes float {
@@ -219,19 +200,39 @@
                 opacity: 0;
             }
         }
+
+        .menu {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 10px;
+            z-index: 1000;
+        }
+
+        .menu a {
+            text-decoration: none;
+            color: #333;
+            margin: 0 10px;
+        }
     </style>
 </head>
 <body>
+    <div class="menu">
+        <a href="index.html">Vahukommide Mäng</a> | <a href="dog_game.html">Koera Põgenemine</a>
+    </div>
     <div class="container">
         <div class="game-area" id="gameArea">
             <div class="ui">
                 <h1>🎯 Vahukommide Mäng</h1>
                 <div class="score">Skoor: <span id="score">0</span></div>
                 <div class="level">Tase: <span id="level">1</span></div>
-                <div class="time">Aeg: <span id="time">60</span>s</div>
+                <div class="lives">Elud: <span id="lives">3</span> ❤️</div>
             </div>
             <div class="button-container">
                 <button id="restartBtn">Uuesti Alusta</button>
+                <button id="jumpBtn">Hüppa Mäng</button>
             </div>
         </div>
     </div>
@@ -241,6 +242,13 @@
         <p>Lõplik Skoor: <strong id="finalScore">0</strong></p>
         <p>Tase: <strong id="finalLevel">1</strong></p>
         <button onclick="location.reload()">Uuesti Mängida</button>
+    </div>
+
+    <div id="jump-game" style="display: none; text-align: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #87CEEB;">
+        <h2 style="color: white;">Hüppa üle ajavaravate!</h2>
+        <canvas id="jump-canvas" width="800" height="400" style="border: 2px solid white; background: #E0F6FF;"></canvas>
+        <p style="color: white;">Vajuta tühikut või kliki hüppamiseks! Hüppa üle ajavaravate.</p>
+        <button onclick="endJumpGame()" style="margin-top: 10px;">Lõpeta Hüppa Mäng</button>
     </div>
 
     <script>
@@ -253,21 +261,22 @@
 
         let score = 0;
         let level = 1;
-        let timeLeft = 60;
         let gameActive = true;
         let marshmallowCount = 0;
+        let lives = 3;
+        const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffa500', '#800080', '#ffc0cb', '#ff4500', '#32cd32', '#1e90ff', '#ffd700', '#da70d6', '#40e0d0'];
 
-        // Käivita aega
-        const timeInterval = setInterval(() => {
-            if (gameActive) {
-                timeLeft--;
-                timeDisplay.textContent = timeLeft;
-
-                if (timeLeft === 0) {
-                    endGame();
-                }
-            }
-        }, 1000);
+        // Hüppa mängu muutujad
+        let jumpGameRunning = false;
+        let jumpCanvas, jumpCtx;
+        let marshmallowY = 300;
+        let marshmallowVelocity = 0;
+        let jumpsLeft = 1;
+        let gates = [];
+        let jumpSpeed = 3;
+        let jumpScore = 0;
+        let jumpLives = 3;
+        let jumpInterval;
 
         // Loo vahukommi
         function createMarshmallow() {
@@ -277,16 +286,25 @@
             marshmallow.className = 'marshmallow';
             marshmallow.id = 'marshmallow-' + marshmallowCount++;
 
+            const size = 50 + level * 15;
+            marshmallow.style.width = size + 'px';
+            marshmallow.style.height = size + 'px';
+
+            // Juhuslik värv - roosa
+            const color = '#ffc0cb';
+            marshmallow.style.background = color;
+            marshmallow.style.borderColor = color;
+
             // Juhuslik positsioon
-            const x = Math.random() * (window.innerWidth - 60);
-            const y = Math.random() * (window.innerHeight - 60);
+            const x = Math.random() * (window.innerWidth - size);
+            const y = Math.random() * (window.innerHeight - size);
 
             marshmallow.style.left = x + 'px';
             marshmallow.style.top = y + 'px';
 
             marshmallow.onclick = (e) => {
                 e.stopPropagation();
-                hitMarshmallow(marshmallow, x, y);
+                hitMarshmallow(marshmallow, x, y, size);
             };
 
             gameArea.appendChild(marshmallow);
@@ -296,24 +314,28 @@
                 if (marshmallow.parentElement) {
                     marshmallow.remove();
                 }
-            }, 4000);
+            }, 2500);
         }
 
         // Pihtas!
-        function hitMarshmallow(marshmallow, x, y) {
+        function hitMarshmallow(marshmallow, x, y, size) {
             score += level * 10;
             scoreDisplay.textContent = score;
 
-            // Blasti efekt
-            createBlast(x + 20, y + 20);
+            // Vihkamise tekst
+            const hateText = document.createElement('div');
+            hateText.className = 'hate-text';
+            hateText.textContent = 'Ma vihkan vahukomme';
+            hateText.style.left = (x + size/2) + 'px';
+            hateText.style.top = (y + size/2) + 'px';
+            gameArea.appendChild(hateText);
 
-            // Osakesed
-            createParticles(x + 20, y + 20);
+            setTimeout(() => hateText.remove(), 1000);
 
             marshmallow.remove();
 
             // Taseme tõstmine
-            if (score > 0 && score % 500 === 0) {
+            if (score > 0 && score % 200 === 0) {
                 level++;
                 levelDisplay.textContent = level;
             }
@@ -379,12 +401,127 @@
             location.reload();
         };
 
+        // Hüppa mäng
+        jumpBtn.onclick = () => {
+            document.querySelector('.container').style.display = 'none';
+            document.getElementById('jump-game').style.display = 'block';
+            startJumpGame();
+        };
+
+        // Hüppa mängu funktsioonid
+        function startJumpGame() {
+            jumpCanvas = document.getElementById('jump-canvas');
+            jumpCtx = jumpCanvas.getContext('2d');
+            marshmallowY = 300;
+            marshmallowVelocity = 0;
+            jumpsLeft = 1;
+            gates = [];
+            jumpSpeed = 3;
+            jumpScore = 0;
+            jumpLives = 3;
+            jumpGameRunning = true;
+            jumpInterval = setInterval(updateJumpGame, 20);
+            setTimeout(endJumpGame, 60000); // 1 minut
+        }
+
+        function updateJumpGame() {
+            if (!jumpGameRunning) return;
+            // Puhasta lõuend
+            jumpCtx.clearRect(0, 0, jumpCanvas.width, jumpCanvas.height);
+            // Joonista maa
+            jumpCtx.fillStyle = 'green';
+            jumpCtx.fillRect(0, 350, jumpCanvas.width, 50);
+            // Joonista vahukomm - roosa
+            jumpCtx.fillStyle = '#ffc0cb';
+            jumpCtx.fillRect(50, marshmallowY, 40, 40);
+            // Gravitatsioon
+            marshmallowVelocity += 0.5;
+            marshmallowY += marshmallowVelocity;
+            if (marshmallowY > 310) {
+                marshmallowY = 310;
+                marshmallowVelocity = 0;
+                jumpsLeft = 1; // Reset jumps on ground
+            }
+            // Ajavaravad
+            for (let i = gates.length - 1; i >= 0; i--) {
+                let gate = gates[i];
+                gate.x -= jumpSpeed;
+                // Joonista värav pruunina
+                jumpCtx.strokeStyle = 'brown';
+                jumpCtx.lineWidth = 5;
+                jumpCtx.beginPath();
+                jumpCtx.moveTo(gate.x, gate.y);
+                jumpCtx.lineTo(gate.x, gate.y + gate.height);
+                jumpCtx.moveTo(gate.x + gate.width, gate.y);
+                jumpCtx.lineTo(gate.x + gate.width, gate.y + gate.height);
+                jumpCtx.moveTo(gate.x, gate.y + 10);
+                jumpCtx.lineTo(gate.x + gate.width, gate.y + 10);
+                jumpCtx.stroke();
+                if (gate.x < -gate.width) {
+                    gates.splice(i, 1);
+                    jumpScore++;
+                }
+                // Kollisjon - lihtsustatud
+                if (50 < gate.x + gate.width && 50 + 40 > gate.x && marshmallowY < gate.y + gate.height) {
+                    jumpLives--;
+                    if (jumpLives <= 0) {
+                        endJumpGame();
+                    } else {
+                        // Reset marshmallow position
+                        marshmallowY = 300;
+                        marshmallowVelocity = 0;
+                        // Remove the gate
+                        gates.splice(i, 1);
+                    }
+                }
+            }
+            // Lisa varavaid
+            if (Math.random() < 0.02) {
+                gates.push({x: jumpCanvas.width, y: 310, width: 30, height: 40});
+            }
+            // Kiirus suureneb
+            jumpSpeed += 0.005;
+            // Joonista skoor
+            jumpCtx.fillStyle = 'black';
+            jumpCtx.font = '20px Arial';
+            jumpCtx.fillText('Skoor: ' + jumpScore, 10, 30);
+            jumpCtx.fillText('Elud: ' + jumpLives, 10, 60);
+        }
+
+        function jumpMarshmallow() {
+            if (jumpsLeft > 0) {
+                marshmallowVelocity = -12;
+                jumpsLeft--;
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (jumpGameRunning && e.code === 'Space') {
+                e.preventDefault();
+                jumpMarshmallow();
+            }
+        });
+
+        jumpCanvas.addEventListener('click', () => {
+            if (jumpGameRunning) jumpMarshmallow();
+        });
+
+        function endJumpGame() {
+            jumpGameRunning = false;
+            clearInterval(jumpInterval);
+            document.getElementById('jump-game').style.display = 'none';
+            document.querySelector('.container').style.display = 'block';
+            // Lisa hüppa skoor põhi skoorile
+            score += jumpScore * 50;
+            scoreDisplay.textContent = score;
+        }
+
         // Alusta mängu
         setInterval(() => {
             if (gameActive) {
                 createMarshmallow();
             }
-        }, 800 - (level * 50));
+        }, 500 - (level * 40));
     </script>
 </body>
 </html>

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Koera Põgenemine</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #87CEEB;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        canvas {
+            border: 2px solid #000;
+            background: linear-gradient(to bottom, #E0F6FF 0%, #87CEEB 100%);
+        }
+        .ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+        .popup.show {
+            display: block;
+        }
+        .menu {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 10px;
+            z-index: 1000;
+        }
+        .menu a {
+            text-decoration: none;
+            color: #333;
+            margin: 0 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="menu">
+        <a href="index.html">Vahukommide Mäng</a> | <a href="dog_game.html">Koera Põgenemine</a>
+    </div>
+    <div class="ui">
+        <div>Elud: <span id="lives">1</span></div>
+        <div>Südamed: <span id="hearts">0</span></div>
+        <div>Tase: <span id="level">1</span></div>
+    </div>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <div class="popup" id="winPopup">
+        <h2>Võit!</h2>
+        <p>Koer on nüüd õnnelik oma pere juures! 🐶❤️</p>
+        <button onclick="location.reload()">Mängi uuesti</button>
+    </div>
+    <div class="popup" id="losePopup">
+        <h2>Kaotus!</h2>
+        <p>Kurjad kassid võitsid. Proovi uuesti!</p>
+        <button onclick="location.reload()">Mängi uuesti</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const livesDisplay = document.getElementById('lives');
+        const heartsDisplay = document.getElementById('hearts');
+        const levelDisplay = document.getElementById('level');
+        const winPopup = document.getElementById('winPopup');
+        const losePopup = document.getElementById('losePopup');
+
+        let dog = { x: 50, y: 200, width: 40, height: 40, speed: 5, sad: true };
+        let hearts = [];
+        let cats = [];
+        let family = { x: 700, y: 200, width: 50, height: 50 };
+        let lives = 1;
+        let collectedHearts = 0;
+        let level = 1;
+        let gameRunning = true;
+
+        function generateLevel() {
+            hearts = [];
+            cats = [];
+            let numHearts, numCats, catSpeed;
+            if (level <= 3) {
+                numHearts = 8 + level * 2;
+                numCats = level == 3 ? 4 : 2 + level;
+                catSpeed = level == 3 ? 1.6 : 1 + level * 0.3;
+            } else if (level <= 6) {
+                numHearts = 12 + level * 3;
+                numCats = 4 + level;
+                catSpeed = 2 + level * 0.4;
+            } else {
+                numHearts = 16 + level * 4;
+                numCats = 6 + level;
+                catSpeed = 3 + level * 0.5;
+            }
+            // Loo südamed
+            for (let i = 0; i < numHearts; i++) {
+                hearts.push({
+                    x: 100 + (i % 10) * 60,
+                    y: 50 + Math.floor(i / 10) * 100 + Math.random() * 50,
+                    width: 20,
+                    height: 20,
+                    collected: false
+                });
+            }
+            // Loo kassid
+            for (let i = 0; i < numCats; i++) {
+                cats.push({
+                    x: 200 + i * 80,
+                    y: Math.random() * 300 + 50,
+                    width: 30,
+                    height: 30,
+                    speed: catSpeed
+                });
+            }
+        }
+
+        generateLevel();
+
+        let keys = {};
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        function update() {
+            if (!gameRunning) return;
+
+            // Liiguta koera
+            if (keys['ArrowUp'] || keys['KeyW']) dog.y -= dog.speed;
+            if (keys['ArrowDown'] || keys['KeyS']) dog.y += dog.speed;
+            if (keys['ArrowLeft'] || keys['KeyA']) dog.x -= dog.speed;
+            if (keys['ArrowRight'] || keys['KeyD']) dog.x += dog.speed;
+
+            // Piirid
+            if (dog.x < 0) dog.x = 0;
+            if (dog.x > canvas.width - dog.width) dog.x = canvas.width - dog.width;
+            if (dog.y < 0) dog.y = 0;
+            if (dog.y > canvas.height - dog.height) dog.y = canvas.height - dog.height;
+
+            // Kontrolli südameid
+            hearts.forEach(heart => {
+                if (!heart.collected && dog.x < heart.x + heart.width && dog.x + dog.width > heart.x &&
+                    dog.y < heart.y + heart.height && dog.y + dog.height > heart.y) {
+                    heart.collected = true;
+                    collectedHearts++;
+                    lives++;
+                    heartsDisplay.textContent = collectedHearts;
+                    livesDisplay.textContent = lives;
+                }
+            });
+
+            // Liiguta kasse
+            cats.forEach(cat => {
+                if (cat.x < dog.x) cat.x += cat.speed;
+                if (cat.x > dog.x) cat.x -= cat.speed;
+                if (cat.y < dog.y) cat.y += cat.speed;
+                if (cat.y > dog.y) cat.y -= cat.speed;
+
+                // Kollisjon kassiga
+                if (dog.x < cat.x + cat.width && dog.x + dog.width > cat.x &&
+                    dog.y < cat.y + cat.height && dog.y + dog.height > cat.y) {
+                    lives--;
+                    livesDisplay.textContent = lives;
+                    if (lives <= 0) {
+                        gameRunning = false;
+                        losePopup.classList.add('show');
+                    } else {
+                        // Reset koera positsioon
+                        dog.x = 50;
+                        dog.y = 200;
+                    }
+                }
+            });
+
+            // Kontrolli võitu
+            if (dog.x + dog.width > family.x && dog.x < family.x + family.width &&
+                dog.y + dog.height > family.y && dog.y < family.y + family.height) {
+                level++;
+                levelDisplay.textContent = level;
+                if (level > 10) {
+                    gameRunning = false;
+                    dog.sad = false;
+                    winPopup.classList.add('show');
+                } else {
+                    // Järgmine tase
+                    dog.x = 50;
+                    dog.y = 200;
+                    collectedHearts = 0;
+                    heartsDisplay.textContent = collectedHearts;
+                    generateLevel();
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Joonista taust
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(0, 350, canvas.width, 50); // Maa
+
+            // Joonista südamed
+            hearts.forEach(heart => {
+                if (!heart.collected) {
+                    ctx.fillStyle = 'red';
+                    ctx.fillText('❤️', heart.x, heart.y + 20);
+                }
+            });
+
+            // Joonista kassid
+            cats.forEach(cat => {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(cat.x, cat.y, cat.width, cat.height);
+                ctx.fillStyle = 'white';
+                ctx.fillText('🐱', cat.x + 5, cat.y + 20);
+            });
+
+            // Joonista pere
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(family.x, family.y, family.width, family.height);
+            ctx.fillStyle = 'white';
+            ctx.fillText('👨‍👩‍👧‍👦', family.x + 10, family.y + 30);
+
+            // Joonista koer
+            ctx.fillStyle = dog.sad ? 'gray' : 'yellow';
+            ctx.fillRect(dog.x, dog.y, dog.width, dog.height);
+            ctx.fillStyle = 'black';
+            ctx.fillText(dog.sad ? '🐶😢' : '🐶😊', dog.x + 5, dog.y + 25);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html></content>
+<parameter name="filePath">k:\AI veeb\dog_game.html
